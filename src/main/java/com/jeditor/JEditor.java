@@ -30,7 +30,7 @@ public class JEditor extends JFrame {
      // CREATE UI COMPONENTS 
         // 1. Create Text Area
         textArea = new JTextArea();
-        // Use a monospaced font which is common for editors
+        // common editor font
         textArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
 
         // 2. Create Menu Bar
@@ -71,7 +71,18 @@ public class JEditor extends JFrame {
         JScrollPane scrollPane = new JScrollPane(textArea);
 
         // 5. Add scroll pane 
-        add(scrollPane);       
+        add(scrollPane); 
+        
+        // ACTION LISTENERS
+
+        // File Menu Listeners
+        newMenuItem.addActionListener(e -> textArea.setText("")); // Clears text area
+        exitMenuItem.addActionListener(e -> System.exit(0)); // Closes application
+
+        // Edit Menu Listeners
+        cutMenuItem.addActionListener(e -> textArea.cut());
+        copyMenuItem.addActionListener(e -> textArea.copy());
+        pasteMenuItem.addActionListener(e -> textArea.paste());
     }
 
     
