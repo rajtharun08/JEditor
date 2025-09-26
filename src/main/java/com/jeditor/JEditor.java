@@ -2,6 +2,9 @@ package com.jeditor;
 
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -25,8 +28,12 @@ public class JEditor extends JFrame {
     private JTextArea textArea;
     private JMenuBar menuBar;
     private JMenu fileMenu, editMenu;
-    private JMenuItem newMenuItem, openMenuItem, saveMenuItem, exitMenuItem;
+    private JMenuItem newMenuItem, openMenuItem, saveMenuItem, saveAsMenuItem, exitMenuItem;
     private JMenuItem cutMenuItem, copyMenuItem, pasteMenuItem;
+    
+    // STATE VARIABLES 
+    private File currentFile;
+    private boolean hasUnsavedChanges = false;
     
     public JEditor() {
         // CONFIGURE THE WINDOW 
@@ -49,6 +56,7 @@ public class JEditor extends JFrame {
         newMenuItem = new JMenuItem("New");
         openMenuItem = new JMenuItem("Open");
         saveMenuItem = new JMenuItem("Save");
+        saveAsMenuItem = new JMenuItem("Save As...");
         exitMenuItem = new JMenuItem("Exit");
 
         // 4. Edit Menu
@@ -62,6 +70,8 @@ public class JEditor extends JFrame {
         fileMenu.add(newMenuItem);
         fileMenu.add(openMenuItem);
         fileMenu.add(saveMenuItem);
+        fileMenu.add(saveAsMenuItem);
+        fileMenu.addSeparator();
         fileMenu.add(exitMenuItem);
 
         editMenu.add(cutMenuItem);
@@ -94,42 +104,97 @@ public class JEditor extends JFrame {
         
         // Open and Save Listeners
         openMenuItem.addActionListener(e -> openFile());
+        saveAsMenuItem.addActionListener(e -> saveFileAs());
         saveMenuItem.addActionListener(e -> saveFile());
+        
+        textArea.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                markAsUnsaved();
+            }
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                markAsUnsaved();
+            }
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                // plain text components do not fire this event
+            }
+        });
+    }
+    // helper functions
+    private void markAsUnsaved() {
+        if (!hasUnsavedChanges) {
+            hasUnsavedChanges = true;
+            updateTitle();
+        }
     }
     
+    private void markAsSaved() {
+        hasUnsavedChanges = false;
+        updateTitle();
+    }
+
+    private void updateTitle() {
+        String title = "JEditor";
+        if (currentFile != null) {
+            title += " - " + currentFile.getName();
+        }
+        if (hasUnsavedChanges) {
+            title += "*";
+        }
+        setTitle(title);
+    }
+
     //ACTION LISTENER METHODS
+    private void newFile() {
+        textArea.setText("");
+        currentFile = null;
+        markAsSaved(); // new file is considered saved initially
+    }
     private void openFile() {
         JFileChooser fileChooser = new JFileChooser();
-        int option = fileChooser.showOpenDialog(this);
-
-        if (option == JFileChooser.APPROVE_OPTION) {
+        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             File file = fileChooser.getSelectedFile();
             try {
                 String content = Files.readString(file.toPath());
                 textArea.setText(content);
-                setTitle("JEditor - " + file.getName());
+                currentFile = file;
+                markAsSaved();
             } catch (IOException ex) {
-                // Show a friendly error message to the user
                 JOptionPane.showMessageDialog(this, "Could not read file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
     private void saveFile() {
-        JFileChooser fileChooser = new JFileChooser();
-        int option = fileChooser.showSaveDialog(this);
-
-        if (option == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
+        if (currentFile == null) {
+            // if it's a new file, delegate to saveFileAs()
+            saveFileAs();
+        } else {
+            // save to the existing file
             try {
-                Files.writeString(file.toPath(), textArea.getText());
-                setTitle("JEditor - " + file.getName());
+                Files.writeString(currentFile.toPath(), textArea.getText());
+                markAsSaved();
             } catch (IOException ex) {
-                // Show a friendly error message to the user
                 JOptionPane.showMessageDialog(this, "Could not save file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
+    private void saveFileAs() {
+        JFileChooser fileChooser = new JFileChooser();
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            try {
+                Files.writeString(file.toPath(), textArea.getText());
+                currentFile = file;
+                markAsSaved();
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "Could not save file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
 
     
     public static void main(String[] args) {
