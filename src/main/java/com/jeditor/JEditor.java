@@ -9,6 +9,8 @@ import java.nio.file.Files;
 import javax.swing.*; 
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.awt.GraphicsEnvironment;
+import java.awt.GridLayout;
 
 /**
  * JEditor is  built with Java Swing
@@ -18,9 +20,10 @@ public class JEditor extends JFrame {
     // UI COMPONENTS 
     private JTextArea textArea;
     private JMenuBar menuBar;
-    private JMenu fileMenu, editMenu;
+    private JMenu fileMenu, editMenu,formatMenu;
     private JMenuItem newMenuItem, openMenuItem, saveMenuItem, saveAsMenuItem, exitMenuItem;
     private JMenuItem cutMenuItem, copyMenuItem, pasteMenuItem,findMenuItem;
+    private JMenuItem fontMenuItem;
     private JPanel statusBar;
     private JLabel wordCountLabel;
     private JLabel lineCountLabel;
@@ -32,6 +35,7 @@ public class JEditor extends JFrame {
     
     // DIALOGS 
     private FindDialog findDialog;
+    private FontDialog fontDialog;
     
     public JEditor() {
         // CONFIGURE THE WINDOW 
@@ -52,6 +56,7 @@ public class JEditor extends JFrame {
         // 2. Create Menu Bar
         menuBar = new JMenuBar();
 
+
         // 3. File Menu
         fileMenu = new JMenu("File");
         newMenuItem = new JMenuItem("New");
@@ -66,6 +71,8 @@ public class JEditor extends JFrame {
         copyMenuItem = new JMenuItem("Copy");
         pasteMenuItem = new JMenuItem("Paste");
         findMenuItem = new JMenuItem("Find...");
+        formatMenu = new JMenu("Format");
+        fontMenuItem = new JMenuItem("Font..."); 
 
         // ADD COMPONENTS TO THE LAYOUT 
         // 1. Add menu items 
@@ -81,10 +88,13 @@ public class JEditor extends JFrame {
         editMenu.add(pasteMenuItem);
         editMenu.addSeparator();
         editMenu.add(findMenuItem);
+        formatMenu.add(fontMenuItem);
 
         // 2. Add menus 
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
+        menuBar.add(formatMenu);
+        setJMenuBar(menuBar);
 
         // 3. Set menu bar 
         setJMenuBar(menuBar);
@@ -122,6 +132,7 @@ public class JEditor extends JFrame {
         saveAsMenuItem.addActionListener(e -> saveFileAs());
         saveMenuItem.addActionListener(e -> saveFile());
         findMenuItem.addActionListener(e -> showFindDialog());
+        fontMenuItem.addActionListener(e -> showFontDialog());
         
         textArea.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -238,6 +249,12 @@ public class JEditor extends JFrame {
         }
         findDialog.setVisible(true);
     }
+    private void showFontDialog() {
+        if (fontDialog == null) {
+            fontDialog = new FontDialog(this);
+        }
+        fontDialog.setVisible(true);
+    }
     
     // INNER CLASS FOR FIND DIALOG 
     private class FindDialog extends JDialog {
@@ -280,8 +297,102 @@ public class JEditor extends JFrame {
             }
         }
     }
+    private class FontDialog extends JDialog 
+    {
+        private JList<String> fontList;
+        private JSpinner sizeSpinner;
+        private JCheckBox boldCheckbox, italicCheckbox;
+        private JLabel previewLabel;
 
+        FontDialog(JFrame owner) {
+            super(owner, "Choose Font", true); // Modal dialog
 
+            // Get all available font names from the system 
+            String[] fontNames = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
+
+            // Create Components 
+            fontList = new JList<>(fontNames);
+            sizeSpinner = new JSpinner(new SpinnerNumberModel(14, 8, 72, 1)); // Initial, min, max, step
+            boldCheckbox = new JCheckBox("Bold");
+            italicCheckbox = new JCheckBox("Italic");
+            previewLabel = new JLabel("AaBbYyZz");
+            previewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+            
+            JButton okButton = new JButton("OK");
+            JButton cancelButton = new JButton("Cancel");
+
+            //  Set initial values based on current text area font 
+            Font currentFont = textArea.getFont();
+            fontList.setSelectedValue(currentFont.getFamily(), true);
+            sizeSpinner.setValue(currentFont.getSize());
+            boldCheckbox.setSelected(currentFont.isBold());
+            italicCheckbox.setSelected(currentFont.isItalic());
+            previewLabel.setFont(currentFont);
+
+            // Layout 
+            JPanel controlsPanel = new JPanel(new GridLayout(3, 1));
+            controlsPanel.add(new JScrollPane(fontList));
+            
+            JPanel sizeAndStylePanel = new JPanel(new FlowLayout());
+            sizeAndStylePanel.add(new JLabel("Size:"));
+            sizeAndStylePanel.add(sizeSpinner);
+            sizeAndStylePanel.add(boldCheckbox);
+            sizeAndStylePanel.add(italicCheckbox);
+            controlsPanel.add(sizeAndStylePanel);
+            
+            JPanel previewPanel = new JPanel(new BorderLayout());
+            previewPanel.setBorder(BorderFactory.createTitledBorder("Preview"));
+            previewPanel.add(previewLabel, BorderLayout.CENTER);
+            controlsPanel.add(previewPanel);
+            
+            JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            buttonsPanel.add(okButton);
+            buttonsPanel.add(cancelButton);
+
+            setLayout(new BorderLayout());
+            add(controlsPanel, BorderLayout.CENTER);
+            add(buttonsPanel, BorderLayout.SOUTH);
+            
+            // Listeners 
+            okButton.addActionListener(e -> {
+                applyFont();
+                setVisible(false);
+            });
+            cancelButton.addActionListener(e -> setVisible(false));
+            
+            // Listener to update the preview label in real-time
+            fontList.addListSelectionListener(e -> updatePreview());
+            sizeSpinner.addChangeListener(e -> updatePreview());
+            boldCheckbox.addActionListener(e -> updatePreview());
+            italicCheckbox.addActionListener(e -> updatePreview());
+            
+            pack();
+            setLocationRelativeTo(owner);
+        }
+
+        private void updatePreview() {
+            String fontName = fontList.getSelectedValue();
+            int size = (Integer) sizeSpinner.getValue();
+            int style = Font.PLAIN;
+            if (boldCheckbox.isSelected()) style |= Font.BOLD;
+            if (italicCheckbox.isSelected()) style |= Font.ITALIC;
+            
+            Font newFont = new Font(fontName, style, size);
+            previewLabel.setFont(newFont);
+        }
+        
+        private void applyFont() {
+            String fontName = fontList.getSelectedValue();
+            int size = (Integer) sizeSpinner.getValue();
+            int style = Font.PLAIN;
+            if (boldCheckbox.isSelected()) style |= Font.BOLD;
+            if (italicCheckbox.isSelected()) style |= Font.ITALIC;
+            
+            Font newFont = new Font(fontName, style, size);
+            textArea.setFont(newFont);
+        }
+    }
+ 
     
     public static void main(String[] args) {
         // Run GUI on the Event Dispatch Thread 
