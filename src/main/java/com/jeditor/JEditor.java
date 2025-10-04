@@ -1,81 +1,93 @@
-package com.jeditor; 
+package com.jeditor;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.GraphicsEnvironment;
+import java.awt.GridLayout;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import javax.swing.*; 
+import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import java.awt.GraphicsEnvironment;
-import java.awt.GridLayout;
 
 /**
- * JEditor is  built with Java Swing
+ * JEditor is a simple text editor built with Java Swing.
  */
 public class JEditor extends JFrame {
-	
-    // UI COMPONENTS 
+
+    // ui components
     private JTextArea textArea;
     private JMenuBar menuBar;
-    private JMenu fileMenu, editMenu,formatMenu;
+    private JMenu fileMenu, editMenu, formatMenu, helpMenu;
     private JMenuItem newMenuItem, openMenuItem, saveMenuItem, saveAsMenuItem, exitMenuItem;
-    private JMenuItem cutMenuItem, copyMenuItem, pasteMenuItem,findMenuItem;
+    private JMenuItem cutMenuItem, copyMenuItem, pasteMenuItem, findMenuItem;
     private JMenuItem fontMenuItem;
+    private JMenuItem aboutMenuItem;
     private JPanel statusBar;
     private JLabel wordCountLabel;
     private JLabel lineCountLabel;
 
-    
-    // STATE VARIABLES 
+    // state variables
     private File currentFile;
     private boolean hasUnsavedChanges = false;
-    
-    // DIALOGS 
+
+    // dialogs
     private FindDialog findDialog;
     private FontDialog fontDialog;
-    
+
+    /**
+     * constructor for the jeditor class.
+     */
     public JEditor() {
-        // CONFIGURE THE WINDOW 
+        // configure the window
         setTitle("JEditor");
-        setSize(800, 600); // window dimensions
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // app close
-        setLocationRelativeTo(null); // Center window
-        
-        //  Set the layout manager for the frame to allow components in different regions
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
         setLayout(new BorderLayout());
-        
-     // CREATE UI COMPONENTS 
-        // 1. Create Text Area
+
+        // create ui components
         textArea = new JTextArea();
-        // common editor font
         textArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
 
-        // 2. Create Menu Bar
+        // create the entire menu system
+        createMenuBar();
+
+        // create the status bar at the bottom
+        statusBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        wordCountLabel = new JLabel("Words: 0");
+        lineCountLabel = new JLabel("Lines: 1");
+        statusBar.add(wordCountLabel);
+        statusBar.add(lineCountLabel);
+
+        // add components to frame's layout
+        setJMenuBar(menuBar);
+        add(new JScrollPane(textArea), BorderLayout.CENTER);
+        add(statusBar, BorderLayout.SOUTH);
+
+        // initialize listeners
+        addMenuActionListeners();
+        addDocumentListener();
+        
+        // update status bar on startup
+        updateStatus();
+    }
+
+    /**
+     * helper method to create and assemble the menu bar.
+     */
+    private void createMenuBar() {
         menuBar = new JMenuBar();
 
-
-        // 3. File Menu
+        // file menu
         fileMenu = new JMenu("File");
         newMenuItem = new JMenuItem("New");
         openMenuItem = new JMenuItem("Open");
         saveMenuItem = new JMenuItem("Save");
         saveAsMenuItem = new JMenuItem("Save As...");
         exitMenuItem = new JMenuItem("Exit");
-
-        // 4. Edit Menu
-        editMenu = new JMenu("Edit");
-        cutMenuItem = new JMenuItem("Cut");
-        copyMenuItem = new JMenuItem("Copy");
-        pasteMenuItem = new JMenuItem("Paste");
-        findMenuItem = new JMenuItem("Find...");
-        formatMenu = new JMenu("Format");
-        fontMenuItem = new JMenuItem("Font..."); 
-
-        // ADD COMPONENTS TO THE LAYOUT 
-        // 1. Add menu items 
         fileMenu.add(newMenuItem);
         fileMenu.add(openMenuItem);
         fileMenu.add(saveMenuItem);
@@ -83,89 +95,83 @@ public class JEditor extends JFrame {
         fileMenu.addSeparator();
         fileMenu.add(exitMenuItem);
 
+        // edit menu
+        editMenu = new JMenu("Edit");
+        cutMenuItem = new JMenuItem("Cut");
+        copyMenuItem = new JMenuItem("Copy");
+        pasteMenuItem = new JMenuItem("Paste");
+        findMenuItem = new JMenuItem("Find...");
         editMenu.add(cutMenuItem);
         editMenu.add(copyMenuItem);
         editMenu.add(pasteMenuItem);
         editMenu.addSeparator();
         editMenu.add(findMenuItem);
+
+        // format menu
+        formatMenu = new JMenu("Format");
+        fontMenuItem = new JMenuItem("Font...");
         formatMenu.add(fontMenuItem);
 
-        // 2. Add menus 
+        // help menu
+        helpMenu = new JMenu("Help");
+        aboutMenuItem = new JMenuItem("About");
+        helpMenu.add(aboutMenuItem);
+
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
         menuBar.add(formatMenu);
-        setJMenuBar(menuBar);
+        menuBar.add(helpMenu);
+    }
 
-        // 3. Set menu bar 
-        setJMenuBar(menuBar);
-        
-        //STATUS BAR SETUP 
-        // panel will hold our labels at the bottom of the screen
-        statusBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5)); // Aligns left with gaps
-        wordCountLabel = new JLabel("Words: 0");
-        lineCountLabel = new JLabel("Lines: 1");
-        statusBar.add(wordCountLabel);
-        statusBar.add(lineCountLabel);
-        // Add the status bar to the SOUTH (bottom) of the frame
-        add(statusBar, BorderLayout.SOUTH);
-        
-        // 4. Add text area 
-        JScrollPane scrollPane = new JScrollPane(textArea);
+    /**
+     * helper method to attach all action listeners to menu items.
+     */
+    private void addMenuActionListeners() {
+        newMenuItem.addActionListener(e -> newFile());
+        openMenuItem.addActionListener(e -> openFile());
+        saveMenuItem.addActionListener(e -> saveFile());
+        saveAsMenuItem.addActionListener(e -> saveFileAs());
+        exitMenuItem.addActionListener(e -> System.exit(0));
 
-        // 5. Add scroll pane 
-        // Modified for Day 6: Specify CENTER region to work with the status bar
-        add(scrollPane, BorderLayout.CENTER); 
-        
-        // ACTION LISTENERS
-
-        // File Menu Listeners
-        newMenuItem.addActionListener(e -> newFile()); // call newFile()
-        exitMenuItem.addActionListener(e -> System.exit(0)); // Closes application
-
-        // Edit Menu Listeners
         cutMenuItem.addActionListener(e -> textArea.cut());
         copyMenuItem.addActionListener(e -> textArea.copy());
         pasteMenuItem.addActionListener(e -> textArea.paste());
-        
-        // Open and Save Listeners
-        openMenuItem.addActionListener(e -> openFile());
-        saveAsMenuItem.addActionListener(e -> saveFileAs());
-        saveMenuItem.addActionListener(e -> saveFile());
         findMenuItem.addActionListener(e -> showFindDialog());
+
         fontMenuItem.addActionListener(e -> showFontDialog());
         
-        textArea.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                markAsUnsaved();
-                updateStatus(); 
-            }
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                markAsUnsaved();
-                updateStatus(); // New for Day 6
-            }
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                // plain text components do not fire this event
-            }
-        });
-        
-        // Update the status bar once when the application starts
-        updateStatus();
-    }
-    // helper functions
-    private void markAsUnsaved() {
-        if (!hasUnsavedChanges) {
-            hasUnsavedChanges = true;
-            updateTitle();
-        }
+        aboutMenuItem.addActionListener(e -> showAboutDialog());
     }
     
-    private void markAsSaved() {
-        hasUnsavedChanges = false;
-        updateTitle();
+    /**
+     * attaches a listener to the text area's document to track changes.
+     */
+    private void addDocumentListener() {
+        textArea.getDocument().addDocumentListener(new DocumentListener() {
+            public void insertUpdate(DocumentEvent e) { 
+            	markAsUnsaved(); updateStatus(); 
+            }
+            public void removeUpdate(DocumentEvent e) { 
+            	markAsUnsaved(); updateStatus();
+            }
+            public void changedUpdate(DocumentEvent e) {
+            	/* not used for plain text */ 
+            }
+        });
     }
+
+    // state management & ui updates
+
+    private void markAsUnsaved() {
+    	if (!hasUnsavedChanges) { 
+    		hasUnsavedChanges = true; 
+    		updateTitle(); 
+    		}
+    	}
+    private void markAsSaved() {
+    	hasUnsavedChanges = false; 
+    	updateTitle(); 
+    	}
 
     private void updateTitle() {
         String title = "JEditor";
@@ -177,227 +183,78 @@ public class JEditor extends JFrame {
         }
         setTitle(title);
     }
-    
-    // This method calculates and updates the word and line counts.
+
     private void updateStatus() {
         String text = textArea.getText();
-        
-        // Logic: split the text by whitespace to get words
         String[] words = text.trim().split("\\s+");
         int wordCount = text.isEmpty() ? 0 : words.length;
         wordCountLabel.setText("Words: " + wordCount);
-
-        // has a built-in method for this
         int lineCount = textArea.getLineCount();
         lineCountLabel.setText("Lines: " + lineCount);
     }
 
+    // dialog show methods
 
-    //ACTION LISTENER METHODS
-    private void newFile() {
-        textArea.setText("");
-        currentFile = null;
-        markAsSaved(); // new file is considered saved initially
-        updateStatus();
+    private void showAboutDialog() {
+        String aboutMessage = "JEditor - Version 1.0\n\n"
+                            + "A simple text editor built with Java Swing.\n"
+                            + "Created by Tharun";
+        JOptionPane.showMessageDialog(this, aboutMessage, "About JEditor", JOptionPane.INFORMATION_MESSAGE);
     }
-    private void openFile() {
-        JFileChooser fileChooser = new JFileChooser();
-        if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            try {
-                String content = Files.readString(file.toPath());
-                textArea.setText(content);
-                currentFile = file;
-                markAsSaved();
-                updateStatus();
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Could not read file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-
-    private void saveFile() {
-        if (currentFile == null) {
-            // if it's a new file, delegate to saveFileAs()
-            saveFileAs();
-        } else {
-            // save to the existing file
-            try {
-                Files.writeString(currentFile.toPath(), textArea.getText());
-                markAsSaved();
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Could not save file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-    private void saveFileAs() {
-        JFileChooser fileChooser = new JFileChooser();
-        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-            File file = fileChooser.getSelectedFile();
-            try {
-                Files.writeString(file.toPath(), textArea.getText());
-                currentFile = file;
-                markAsSaved();
-            } catch (IOException ex) {
-                JOptionPane.showMessageDialog(this, "Could not save file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
-    private void showFindDialog() {
-        if (findDialog == null) {
-            findDialog = new FindDialog(this);
-        }
-        findDialog.setVisible(true);
-    }
+    
+    private void showFindDialog() { 
+    	if (findDialog == null) findDialog = new FindDialog(this); findDialog.setVisible(true); }
     private void showFontDialog() {
-        if (fontDialog == null) {
-            fontDialog = new FontDialog(this);
-        }
-        fontDialog.setVisible(true);
-    }
+    	if (fontDialog == null) fontDialog = new FontDialog(this); fontDialog.setVisible(true); }
+
+    // file actions
+
+    private void newFile() { 
+    	textArea.setText(""); currentFile = null;
+    	markAsSaved();
+    	updateStatus(); 
+    	}
     
-    // INNER CLASS FOR FIND DIALOG 
-    private class FindDialog extends JDialog {
-        private JTextField searchField;
-        private JButton findNextButton;
-        private int lastMatchIndex = -1;
+    private void openFile() { 
+    	JFileChooser fc = new JFileChooser();
+    	if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) { File f = fc.getSelectedFile(); try { textArea.setText(Files.readString(f.toPath())); currentFile = f; markAsSaved(); updateStatus(); } catch (IOException ex) { JOptionPane.showMessageDialog(this, "Error reading file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE); } } }
+    private void saveFile() { 
+    	if (currentFile == null) {
+    		saveFileAs(); 
+    		} 
+    	else {
+    		try {
+    			Files.writeString(currentFile.toPath(), textArea.getText()); 
+    			markAsSaved();
+    			}
+    		catch (IOException ex) { 
+    			JOptionPane.showMessageDialog(this, "Error saving file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE); 
+    			}
+    		} 
+    	}
+    private void saveFileAs() { 
+    	JFileChooser fc = new JFileChooser(); 
+    	if (fc.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+    		File f = fc.getSelectedFile(); 
+    		try {
+    			Files.writeString(f.toPath(), textArea.getText()); currentFile = f;
+    			markAsSaved();
+    			}
+    		catch (IOException ex) {
+    			JOptionPane.showMessageDialog(this, "Error saving file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE); }
+    		}
+    	}
 
-        FindDialog(JFrame owner) {
-            super(owner, "Find", false); // Title, not modal
-            searchField = new JTextField(20);
-            findNextButton = new JButton("Find Next");
+    // inner class for find dialog
+    private class FindDialog extends JDialog { private JTextField searchField; private JButton findNextButton; private int lastMatchIndex = -1; FindDialog(JFrame owner) { super(owner, "Find", false); searchField = new JTextField(20); findNextButton = new JButton("Find Next"); setLayout(new FlowLayout()); add(new JLabel("Find what:")); add(searchField); add(findNextButton); pack(); setLocationRelativeTo(owner); findNextButton.addActionListener(e -> findNext()); } private void findNext() { String searchText = searchField.getText(); String content = textArea.getText(); int searchFrom = (lastMatchIndex == -1) ? 0 : lastMatchIndex + 1; lastMatchIndex = content.indexOf(searchText, searchFrom); if (lastMatchIndex != -1) { textArea.requestFocusInWindow(); textArea.select(lastMatchIndex, lastMatchIndex + searchText.length()); } else { JOptionPane.showMessageDialog(this, "No more occurrences found.", "Find", JOptionPane.INFORMATION_MESSAGE); lastMatchIndex = -1; } } }
 
-            setLayout(new FlowLayout());
-            add(new JLabel("Find what:"));
-            add(searchField);
-            add(findNextButton);
-            pack(); // Sizes the dialog to fit its components
-            setLocationRelativeTo(owner);
-
-            findNextButton.addActionListener(e -> findNext());
-        }
-
-        private void findNext() {
-            String searchText = searchField.getText();
-            String content = textArea.getText();
-            
-            // Start searching from the character after the last match
-            int searchFrom = (lastMatchIndex == -1) ? 0 : lastMatchIndex + 1;
-            
-            lastMatchIndex = content.indexOf(searchText, searchFrom);
-
-            if (lastMatchIndex != -1) {
-                // Found a match, highlight it
-                textArea.requestFocusInWindow();
-                textArea.select(lastMatchIndex, lastMatchIndex + searchText.length());
-            } else {
-                // No match found from the current position
-                JOptionPane.showMessageDialog(this, "No more occurrences found.", "Find", JOptionPane.INFORMATION_MESSAGE);
-                lastMatchIndex = -1; // Reset for next search from the beginning
-            }
-        }
-    }
-    private class FontDialog extends JDialog 
-    {
-        private JList<String> fontList;
-        private JSpinner sizeSpinner;
-        private JCheckBox boldCheckbox, italicCheckbox;
-        private JLabel previewLabel;
-
-        FontDialog(JFrame owner) {
-            super(owner, "Choose Font", true); // Modal dialog
-
-            // Get all available font names from the system 
-            String[] fontNames = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
-
-            // Create Components 
-            fontList = new JList<>(fontNames);
-            sizeSpinner = new JSpinner(new SpinnerNumberModel(14, 8, 72, 1)); // Initial, min, max, step
-            boldCheckbox = new JCheckBox("Bold");
-            italicCheckbox = new JCheckBox("Italic");
-            previewLabel = new JLabel("AaBbYyZz");
-            previewLabel.setHorizontalAlignment(SwingConstants.CENTER);
-            
-            JButton okButton = new JButton("OK");
-            JButton cancelButton = new JButton("Cancel");
-
-            //  Set initial values based on current text area font 
-            Font currentFont = textArea.getFont();
-            fontList.setSelectedValue(currentFont.getFamily(), true);
-            sizeSpinner.setValue(currentFont.getSize());
-            boldCheckbox.setSelected(currentFont.isBold());
-            italicCheckbox.setSelected(currentFont.isItalic());
-            previewLabel.setFont(currentFont);
-
-            // Layout 
-            JPanel controlsPanel = new JPanel(new GridLayout(3, 1));
-            controlsPanel.add(new JScrollPane(fontList));
-            
-            JPanel sizeAndStylePanel = new JPanel(new FlowLayout());
-            sizeAndStylePanel.add(new JLabel("Size:"));
-            sizeAndStylePanel.add(sizeSpinner);
-            sizeAndStylePanel.add(boldCheckbox);
-            sizeAndStylePanel.add(italicCheckbox);
-            controlsPanel.add(sizeAndStylePanel);
-            
-            JPanel previewPanel = new JPanel(new BorderLayout());
-            previewPanel.setBorder(BorderFactory.createTitledBorder("Preview"));
-            previewPanel.add(previewLabel, BorderLayout.CENTER);
-            controlsPanel.add(previewPanel);
-            
-            JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-            buttonsPanel.add(okButton);
-            buttonsPanel.add(cancelButton);
-
-            setLayout(new BorderLayout());
-            add(controlsPanel, BorderLayout.CENTER);
-            add(buttonsPanel, BorderLayout.SOUTH);
-            
-            // Listeners 
-            okButton.addActionListener(e -> {
-                applyFont();
-                setVisible(false);
-            });
-            cancelButton.addActionListener(e -> setVisible(false));
-            
-            // Listener to update the preview label in real-time
-            fontList.addListSelectionListener(e -> updatePreview());
-            sizeSpinner.addChangeListener(e -> updatePreview());
-            boldCheckbox.addActionListener(e -> updatePreview());
-            italicCheckbox.addActionListener(e -> updatePreview());
-            
-            pack();
-            setLocationRelativeTo(owner);
-        }
-
-        private void updatePreview() {
-            String fontName = fontList.getSelectedValue();
-            int size = (Integer) sizeSpinner.getValue();
-            int style = Font.PLAIN;
-            if (boldCheckbox.isSelected()) style |= Font.BOLD;
-            if (italicCheckbox.isSelected()) style |= Font.ITALIC;
-            
-            Font newFont = new Font(fontName, style, size);
-            previewLabel.setFont(newFont);
-        }
-        
-        private void applyFont() {
-            String fontName = fontList.getSelectedValue();
-            int size = (Integer) sizeSpinner.getValue();
-            int style = Font.PLAIN;
-            if (boldCheckbox.isSelected()) style |= Font.BOLD;
-            if (italicCheckbox.isSelected()) style |= Font.ITALIC;
-            
-            Font newFont = new Font(fontName, style, size);
-            textArea.setFont(newFont);
-        }
-    }
- 
+    // inner class for font dialog
+    private class FontDialog extends JDialog { private JList<String> fontList; private JSpinner sizeSpinner; private JCheckBox boldCheckbox, italicCheckbox; private JLabel previewLabel; FontDialog(JFrame owner) { super(owner, "Choose Font", true); String[] fontNames = GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(); fontList = new JList<>(fontNames); sizeSpinner = new JSpinner(new SpinnerNumberModel(14, 8, 72, 1)); boldCheckbox = new JCheckBox("Bold"); italicCheckbox = new JCheckBox("Italic"); previewLabel = new JLabel("AaBbYyZz"); previewLabel.setHorizontalAlignment(SwingConstants.CENTER); JButton okButton = new JButton("OK"); JButton cancelButton = new JButton("Cancel"); Font currentFont = textArea.getFont(); fontList.setSelectedValue(currentFont.getFamily(), true); sizeSpinner.setValue(currentFont.getSize()); boldCheckbox.setSelected(currentFont.isBold()); italicCheckbox.setSelected(currentFont.isItalic()); previewLabel.setFont(currentFont); JPanel controlsPanel = new JPanel(new GridLayout(3, 1, 5, 5)); controlsPanel.add(new JScrollPane(fontList)); JPanel sizeAndStylePanel = new JPanel(new FlowLayout()); sizeAndStylePanel.add(new JLabel("Size:")); sizeAndStylePanel.add(sizeSpinner); sizeAndStylePanel.add(boldCheckbox); sizeAndStylePanel.add(italicCheckbox); controlsPanel.add(sizeAndStylePanel); JPanel previewPanel = new JPanel(new BorderLayout()); previewPanel.setBorder(BorderFactory.createTitledBorder("Preview")); previewPanel.add(previewLabel, BorderLayout.CENTER); controlsPanel.add(previewPanel); JPanel buttonsPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT)); buttonsPanel.add(okButton); buttonsPanel.add(cancelButton); setLayout(new BorderLayout(5, 5)); add(controlsPanel, BorderLayout.CENTER); add(buttonsPanel, BorderLayout.SOUTH); okButton.addActionListener(e -> { applyFont(); setVisible(false); }); cancelButton.addActionListener(e -> setVisible(false)); fontList.addListSelectionListener(e -> updatePreview()); sizeSpinner.addChangeListener(e -> updatePreview()); boldCheckbox.addActionListener(e -> updatePreview()); italicCheckbox.addActionListener(e -> updatePreview()); pack(); setLocationRelativeTo(owner); } private void updatePreview() { String name = fontList.getSelectedValue(); int size = (Integer) sizeSpinner.getValue(); int style = (boldCheckbox.isSelected() ? Font.BOLD : 0) | (italicCheckbox.isSelected() ? Font.ITALIC : 0); previewLabel.setFont(new Font(name, style, size)); } private void applyFont() { String name = fontList.getSelectedValue(); int size = (Integer) sizeSpinner.getValue(); int style = (boldCheckbox.isSelected() ? Font.BOLD : 0) | (italicCheckbox.isSelected() ? Font.ITALIC : 0); textArea.setFont(new Font(name, style, size)); } }
     
+    /**
+     * the main entry point for the JEditor application.
+     */
     public static void main(String[] args) {
-        // Run GUI on the Event Dispatch Thread 
-        SwingUtilities.invokeLater(() -> {
-            new JEditor().setVisible(true);
-        });
+        SwingUtilities.invokeLater(() -> new JEditor().setVisible(true));
     }
 }
