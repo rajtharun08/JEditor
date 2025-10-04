@@ -1,27 +1,14 @@
 package com.jeditor; 
 
-import javax.swing.JFrame;
-import javax.swing.JLabel; 
-import javax.swing.SwingUtilities;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-
-import java.awt.BorderLayout; 
-import java.awt.FlowLayout;  
+import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.awt.Font;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import javax.swing.JFileChooser;
-import javax.swing.JMenu;
-import javax.swing.JMenuBar;
-import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;  
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
+import javax.swing.*; 
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 /**
  * JEditor is  built with Java Swing
@@ -33,7 +20,7 @@ public class JEditor extends JFrame {
     private JMenuBar menuBar;
     private JMenu fileMenu, editMenu;
     private JMenuItem newMenuItem, openMenuItem, saveMenuItem, saveAsMenuItem, exitMenuItem;
-    private JMenuItem cutMenuItem, copyMenuItem, pasteMenuItem;
+    private JMenuItem cutMenuItem, copyMenuItem, pasteMenuItem,findMenuItem;
     private JPanel statusBar;
     private JLabel wordCountLabel;
     private JLabel lineCountLabel;
@@ -43,6 +30,9 @@ public class JEditor extends JFrame {
     private File currentFile;
     private boolean hasUnsavedChanges = false;
     
+    // DIALOGS 
+    private FindDialog findDialog;
+    
     public JEditor() {
         // CONFIGURE THE WINDOW 
         setTitle("JEditor");
@@ -50,7 +40,7 @@ public class JEditor extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE); // app close
         setLocationRelativeTo(null); // Center window
         
-        // New for Day 6: Set the layout manager for the frame to allow components in different regions
+        //  Set the layout manager for the frame to allow components in different regions
         setLayout(new BorderLayout());
         
      // CREATE UI COMPONENTS 
@@ -75,6 +65,7 @@ public class JEditor extends JFrame {
         cutMenuItem = new JMenuItem("Cut");
         copyMenuItem = new JMenuItem("Copy");
         pasteMenuItem = new JMenuItem("Paste");
+        findMenuItem = new JMenuItem("Find...");
 
         // ADD COMPONENTS TO THE LAYOUT 
         // 1. Add menu items 
@@ -88,6 +79,8 @@ public class JEditor extends JFrame {
         editMenu.add(cutMenuItem);
         editMenu.add(copyMenuItem);
         editMenu.add(pasteMenuItem);
+        editMenu.addSeparator();
+        editMenu.add(findMenuItem);
 
         // 2. Add menus 
         menuBar.add(fileMenu);
@@ -128,6 +121,7 @@ public class JEditor extends JFrame {
         openMenuItem.addActionListener(e -> openFile());
         saveAsMenuItem.addActionListener(e -> saveFileAs());
         saveMenuItem.addActionListener(e -> saveFile());
+        findMenuItem.addActionListener(e -> showFindDialog());
         
         textArea.getDocument().addDocumentListener(new DocumentListener() {
             @Override
@@ -235,6 +229,54 @@ public class JEditor extends JFrame {
                 markAsSaved();
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Could not save file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+    private void showFindDialog() {
+        if (findDialog == null) {
+            findDialog = new FindDialog(this);
+        }
+        findDialog.setVisible(true);
+    }
+    
+    // INNER CLASS FOR FIND DIALOG 
+    private class FindDialog extends JDialog {
+        private JTextField searchField;
+        private JButton findNextButton;
+        private int lastMatchIndex = -1;
+
+        FindDialog(JFrame owner) {
+            super(owner, "Find", false); // Title, not modal
+            searchField = new JTextField(20);
+            findNextButton = new JButton("Find Next");
+
+            setLayout(new FlowLayout());
+            add(new JLabel("Find what:"));
+            add(searchField);
+            add(findNextButton);
+            pack(); // Sizes the dialog to fit its components
+            setLocationRelativeTo(owner);
+
+            findNextButton.addActionListener(e -> findNext());
+        }
+
+        private void findNext() {
+            String searchText = searchField.getText();
+            String content = textArea.getText();
+            
+            // Start searching from the character after the last match
+            int searchFrom = (lastMatchIndex == -1) ? 0 : lastMatchIndex + 1;
+            
+            lastMatchIndex = content.indexOf(searchText, searchFrom);
+
+            if (lastMatchIndex != -1) {
+                // Found a match, highlight it
+                textArea.requestFocusInWindow();
+                textArea.select(lastMatchIndex, lastMatchIndex + searchText.length());
+            } else {
+                // No match found from the current position
+                JOptionPane.showMessageDialog(this, "No more occurrences found.", "Find", JOptionPane.INFORMATION_MESSAGE);
+                lastMatchIndex = -1; // Reset for next search from the beginning
             }
         }
     }
